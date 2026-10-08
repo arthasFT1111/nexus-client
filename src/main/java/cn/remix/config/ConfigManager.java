@@ -22,6 +22,7 @@ public final class ConfigManager implements IMinecraft {
         );
 
         loadAll();
+        scanConfigs();
     }
 
     public Config getConfig(final String name) {
@@ -58,5 +59,64 @@ public final class ConfigManager implements IMinecraft {
 
     public void loadAll() {
         configs.forEach(Config::load);
+    }
+
+    public void scanConfigs() {
+        File directory = new File(Client.name, "configs");
+        if (!directory.exists() || !directory.isDirectory()) return;
+
+        File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".json"));
+        if (files == null) return;
+
+        for (File file : files) {
+            String name = file.getName();
+            name = name.substring(0, name.length() - 5);
+
+            if (getConfig(name) == null) {
+                configs.add(new ModuleConfig(name));
+            }
+        }
+    }
+
+    public void saveConfig(String name) {
+        Config config = getConfig(name);
+        if (config != null) {
+            config.save();
+            Client.logger.info("Saved config: {}", name);
+        } else {
+            ModuleConfig newConfig = new ModuleConfig(name);
+            newConfig.save();
+            configs.add(newConfig);
+            Client.logger.info("Created and saved config: {}", name);
+        }
+    }
+
+    public void loadConfig(String name) {
+        Config config = getConfig(name);
+        if (config != null) {
+            config.load();
+            Client.logger.info("Loaded config: {}", name);
+        } else {
+            Client.logger.warn("Config not found: {}", name);
+        }
+    }
+
+    public void createConfig(String name) {
+        if (getConfig(name) != null) return;
+        ModuleConfig config = new ModuleConfig(name);
+        configs.add(config);
+        config.save();
+    }
+
+    public void deleteConfig(String name) {
+        Config config = getConfig(name);
+        if (config != null) {
+            File file = config.getFile();
+            if (file.exists()) {
+                file.delete();
+            }
+            configs.remove(config);
+            Client.logger.info("Deleted config: {}", name);
+        }
     }
 }

@@ -1,7 +1,6 @@
 plugins {
-    id 'fabric-loom' version '1.17-SNAPSHOT'
+    id 'net.fabricmc.fabric-loom-remap' version '1.17.21'
     id 'maven-publish'
-    id 'io.freefair.lombok' version '8.6'
 }
 
 version = project.mod_version
@@ -11,48 +10,36 @@ base {
     archivesName = project.archives_base_name
 }
 
-
 repositories {
-    
-    maven {
-        name = "Aliyun"
-        url = "https://maven.aliyun.com/repository/public"
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = "https://api.modrinth.com/maven"
+            }
+        }
+        filter {
+            includeGroup "maven.modrinth"
+        }
     }
-    maven {
-        name = "AliyunForge"
-        url = "https://maven.aliyun.com/repository/forge"
-    }
-    maven {
-        name = "Tencent"
-        url = "https://mirrors.tencent.com/nexus/repository/maven-public/"
-    }
-    maven {
-        name = "MinecraftForge"
-        url = "https://maven.minecraftforge.net/"
-    }
-    
-    maven {
-        name = "Mojang"
-        url = "https://libraries.minecraft.net/"
-    }
-    
-    mavenCentral()
-    mavenLocal()
 }
 
 dependencies {
-    
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    implementation "io.netty:netty-handler-proxy:${"4.1.111.Final"}"
-    include "io.netty:netty-handler-proxy:${"4.1.111.Final"}"
-    implementation "io.netty:netty-codec-socks:${"4.1.111.Final"}"
-    include "io.netty:netty-codec-socks:${"4.1.111.Final"}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-    // JavaFX 21.0.7 (仅 win x64)：WebView 音乐 UI + MediaPlayer 解码(mp3/m4a)
+    // Brapi — библиотека для гладких скруглений (modImplementation + include)
+    modImplementation "maven.modrinth:4kGyjaWF:0.26+1.21.11+fabric"
+    include "maven.modrinth:4kGyjaWF:0.26+1.21.11+fabric"
+
+    // Lombok — для @Getter, @Setter, @AllArgsConstructor и т.д.
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+
+    // JavaFX — для музыкального плеера (MusicFxApp)
     def javafxVersion = "21.0.7"
     implementation "org.openjfx:javafx-base:${javafxVersion}:win"
     include "org.openjfx:javafx-base:${javafxVersion}:win"
@@ -64,50 +51,35 @@ dependencies {
     include "org.openjfx:javafx-media:${javafxVersion}:win"
     implementation "org.openjfx:javafx-web:${javafxVersion}:win"
     include "org.openjfx:javafx-web:${javafxVersion}:win"
+
+    // Netty — для Proxy (Socks5ProxyHandler)
+    implementation "io.netty:netty-handler-proxy:4.1.117.Final"
+    include "io.netty:netty-handler-proxy:4.1.117.Final"
 }
 
 processResources {
     inputs.property "version", project.version
-    inputs.property "minecraft_version", project.minecraft_version
-    inputs.property "loader_version", project.loader_version
-    filteringCharset "UTF-8"
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version,
-                "minecraft_version": project.minecraft_version,
-                "loader_version": project.loader_version
+        expand "version": project.version
     }
 }
 
-def targetJavaVersion = 21
 tasks.withType(JavaCompile).configureEach {
-    
-    
-    
-    
-    it.options.encoding = "UTF-8"
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        it.options.release.set(targetJavaVersion)
-    }
+    it.options.release = 21
 }
 
 java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    }
-    
-    
-    
     withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archives_base_name}" }
+        rename { "${it}_${project.base.archivesName.get()}" }
     }
 }
-
 
 publishing {
     publications {
@@ -117,11 +89,6 @@ publishing {
         }
     }
 
-    
     repositories {
-        
-        
-        
-        
     }
 }

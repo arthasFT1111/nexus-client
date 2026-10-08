@@ -163,6 +163,8 @@ public class ModuleManager implements IMinecraft {
                 new AntiBlindness(),
                 new AntiNausea(),
                 new NoRender(),
+                new RealTime(),
+                new Watermark(),
                 new Translator()
         );
 

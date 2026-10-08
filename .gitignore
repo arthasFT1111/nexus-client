@@ -1,24 +1,28 @@
-.DS_Store
-
-.gradle
-
-build
-
+# Gradle
+.gradle/
+build/
 out/
-.idea
+
+# Fabric / Minecraft dev
+run/
+runs/
+
+# IntelliJ IDEA
+.idea/
 *.iml
-.idea_modules/
+*.iws
+*.ipr
 
+# Eclipse
+.classpath
+.project
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
 hs_err_pid*
-
-run
-
-AGENTS.md
-
-# 临时工作目录：反编译产物、校验脚本、发版说明草稿等，不入库
-.tmpmc/
-_survey.txt
-
-# 一次性改动脚本 / 校验脚本
-/tools/
-*.py

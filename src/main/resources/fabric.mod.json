@@ -16,8 +16,9 @@
     "mixin.json"
   ],
   "depends": {
-    "fabricloader": ">=${loader_version}",
+    "fabricloader": ">=0.15.0",
     "fabric-api": "*",
-    "minecraft": "${minecraft_version}"
+    "minecraft": "~1.21.11",
+    "brapi": "*"
   }
 }

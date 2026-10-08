@@ -3,66 +3,77 @@ package cn.remix;
 import cn.remix.command.CommandManager;
 import cn.remix.config.ConfigManager;
 import cn.remix.event.base.EventManager;
-import cn.remix.management.*;
+import cn.remix.management.FriendManager;
+import cn.remix.management.PacketManager;
+import cn.remix.management.TargetManager;
 import cn.remix.module.ModuleManager;
-import cn.remix.module.impl.render.Title;
-import cn.remix.ui.clickgui.ClickGuiScreen;
+import cn.remix.ui.clickgui.CelestialClickGuiScreen;
 import cn.remix.ui.font.FontManager;
 import cn.remix.util.IMinecraft;
 import lombok.Getter;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.minecraft.util.Identifier;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 @Getter
-public class Client implements IMinecraft {
-    public static Client instance;
-    public static Logger logger;
+public class Client implements ClientModInitializer, IMinecraft {
 
-    public static String name = "Remix";
-    public static String version = "v1.0.0";
+    public static Client instance;
+    public static final String name = "Remix";
+    public static final String version = "2.4.3";
+    public static Logger logger = LogManager.getLogger(name);
 
     private EventManager eventManager;
     private ModuleManager moduleManager;
     private CommandManager commandManager;
     private ConfigManager configManager;
-    private RotationManager rotationManager;
-    private TargetManager targetManager;
-    private FriendManager friendManager;
     private FontManager fontManager;
+    private FriendManager friendManager;
+    private TargetManager targetManager;
     private PacketManager packetManager;
-    private IndicatorManager indicatorManager;
-    private ClickGuiScreen clickGuiScreen;
+
+    private CelestialClickGuiScreen clickGuiScreen;
+
+    @Override
+    public void onInitializeClient() {
+        instance = this;
+        init();
+    }
 
     public void init() {
-        cn.remix.protocol.heypixel.ProtocolPayloads.register();
         eventManager = new EventManager();
+        fontManager = new FontManager();
         moduleManager = new ModuleManager();
         commandManager = new CommandManager();
         configManager = new ConfigManager();
-        rotationManager = new RotationManager();
-        targetManager = new TargetManager();
         friendManager = new FriendManager();
-        fontManager = new FontManager();
+        targetManager = new TargetManager();
         packetManager = new PacketManager();
-        indicatorManager = new IndicatorManager();
-        MusicManager.init();
-        clickGuiScreen = new ClickGuiScreen();
 
-        
-        instance.getModuleManager().getModule(Title.class).apply();
+        clickGuiScreen = new CelestialClickGuiScreen();
 
-        
-        
+        // ─── Регистрация HUD-элемента для Watermark ───
+        HudElementRegistry.attachElementBefore(
+                VanillaHudElements.CHAT,
+                Identifier.of("remix", "watermark"),
+                (graphics, tickCounter) -> {
+                    cn.remix.module.impl.render.Watermark wm =
+                            instance.getModuleManager().getModule(cn.remix.module.impl.render.Watermark.class);
+                    if (wm != null && wm.isEnabled()) {
+                        wm.renderWatermark(graphics);
+                    }
+                }
+        );
+
+        logger.info("Remix initialized.");
     }
 
     public void shutdown() {
-        // 关游戏时自动停掉 MusicPlayer：收好播放进度、停掉音频、收起界面，避免残留的
-        // JavaFX 播放器/覆盖层拖住退出流程
-        try {
-            cn.remix.module.impl.misc.MusicPlayer music =
-                    getModuleManager().getModule(cn.remix.module.impl.misc.MusicPlayer.class);
-            if (music != null && music.isEnabled()) music.setEnabled(false);
-        } catch (Throwable ignored) {
+        if (configManager != null) {
+            configManager.saveAll();
         }
-        configManager.saveAll();
     }
 }

@@ -13,7 +13,7 @@ public final class ClickGui extends Module {
 
     @Override
     public void onEnable() {
-        mc.setScreen(instance.getClickGuiScreen());
+        mc.setScreen(new cn.remix.ui.clickgui.CelestialClickGuiScreen());
         toggle();
     }
 }
