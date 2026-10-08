@@ -1,15 +1,17 @@
 {
   "schemaVersion": 1,
-  "id": "flux",
-  "version": "${version}",
-  "name": "flux",
-  "description": "",
+  "id": "remix",
+  "version": "1.0.0",
+  "name": "Nexus",
+  "description": "Nexus Client",
   "authors": [],
   "contact": {},
   "license": "All-Rights-Reserved",
   "environment": "client",
   "entrypoints": {
-    "client": [],
+    "client": [
+        "cn.remix.Client"
+    ],
     "main": []
   },
   "mixins": [

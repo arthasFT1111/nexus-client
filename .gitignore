@@ -3,26 +3,12 @@
 build/
 out/
 
-# Fabric / Minecraft dev
-run/
-runs/
-
-# IntelliJ IDEA
+# IntelliJ
 .idea/
 *.iml
-*.iws
 *.ipr
+*.iws
 
-# Eclipse
-.classpath
-.project
-.settings/
-
-# OS
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# Logs
+# Прочее
+run/
 *.log
-hs_err_pid*

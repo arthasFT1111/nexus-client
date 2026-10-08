@@ -23,6 +23,7 @@ import org.lwjgl.glfw.GLFW;
 
 import dev.bsprout.brapi.client.BFont;
 import dev.bsprout.brapi.client.BRender;
+import dev.bsprout.brapi.client.BTexture;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -30,15 +31,16 @@ import java.util.List;
 
 public final class CelestialClickGuiScreen extends Screen implements IMinecraft {
 
-    private static final float WINDOW_WIDTH = 500;
-    private static final float WINDOW_HEIGHT = 320;
-    private static final float TAB_HEIGHT = 30;
+    private static final float WINDOW_WIDTH = 620;
+    private static final float WINDOW_HEIGHT = 400;
+    private static final float SIDEBAR_WIDTH = 120;
     private static final float SEARCH_HEIGHT = 22;
-    private static final float ROW_HEIGHT = 20;
+    private static final float ROW_HEIGHT = 32;
     private static final float ROW_GAP = 3;
     private static final float PADDING = 12;
     private static final float CONFIG_ROW_HEIGHT = 22;
     private static final float CONFIG_BTN_WIDTH = 70;
+    private static final float CAT_HEIGHT = 26;
 
     private Category selectedCategory = Category.Combat;
     private boolean configMode = false;
@@ -50,11 +52,10 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
     private float scrollOffset = 0;
     private float targetScroll = 0;
 
-    private float windowX, windowY;
-
     private final EasingAnimation openAnimation = new EasingAnimation(Easing.EASE_OUT_CUBIC, 260);
 
     private BFont bFont;
+    private BTexture logoTexture;
 
     private String searchQuery = "";
     private boolean searchFocused = false;
@@ -65,16 +66,15 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
 
     @Override
     protected void init() {
-        windowX = (width - WINDOW_WIDTH) / 2f;
-        windowY = (height - WINDOW_HEIGHT) / 2f;
         openAnimation.reset();
 
         if (bFont == null) {
-            try {
-                bFont = new BFont(Identifier.of("brapi", "fonts/noto_sans_regular.ttf"));
-            } catch (Exception e) {
-                bFont = null;
-            }
+            try { bFont = new BFont(Identifier.of("brapi", "fonts/noto_sans_regular.ttf")); }
+            catch (Exception e) { bFont = null; }
+        }
+        if (logoTexture == null) {
+            try { logoTexture = new BTexture(Identifier.of("remix", "textures/gui/logo.png")); }
+            catch (Exception e) { logoTexture = null; }
         }
 
         searchQuery = "";
@@ -93,23 +93,28 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
         rows.clear();
         if (configMode) return;
 
-        String query = searchQuery.toLowerCase().trim();
+                String query = searchQuery.toLowerCase().trim();
         for (Module m : instance.getModuleManager().getModuleMap().values()) {
             if (m.getCategory() != selectedCategory) continue;
             if (!query.isEmpty()) {
                 String original = m.getName().toLowerCase();
                 String translated = Translator.module(m.getName()).toLowerCase();
-                if (!original.contains(query) && !translated.contains(query)) continue;
+                String description = m.getDescription().toLowerCase();
+                if (!original.contains(query) && !translated.contains(query) && !description.contains(query)) continue;
             }
             rows.add(new ModuleRow(m));
         }
         scrollOffset = 0;
         targetScroll = 0;
-    }
+    }   // ← ЗАКРЫВАЮЩАЯ СКОБКА МЕТОДА rebuildRows
 
-    private static int rainbowShift(float speed, float saturation, float brightness, float offset) {
-        float hue = ((System.currentTimeMillis() % (long) (speed * 1000)) / (speed * 1000f) + offset) % 1.0f;
-        return Color.HSBtoRGB(hue, saturation, brightness);
+    /** Плавное фиолетовое переливание (как в MainMenu). */
+    private static int purpleShift(float brightness, float offset) {
+        float t = (float) ((Math.sin(System.currentTimeMillis() / 3000.0 + offset) + 1.0) / 2.0);
+        int r = (int) (10 + 25 * t * brightness);
+        int g = (int) (5 + 10 * t * brightness);
+        int b = (int) (20 + 50 * t * brightness);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     private static String categoryIcon(Category c) {
@@ -144,6 +149,7 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
         float drawX = cx - drawW / 2f;
         float drawY = cy - drawH / 2f;
 
+        // тень
         for (int i = 10; i > 0; i--) {
             int shadowAlpha = (int) (14 * (1.0f - i / 10.0f) * open);
             if (shadowAlpha <= 0) continue;
@@ -151,7 +157,8 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
                     (shadowAlpha << 24), 12 + i, 1);
         }
 
-        int b1 = rainbowShift(8f, 0.55f, 1.0f, 0f);
+        // бордер (фиолетовый)
+        int b1 = purpleShift(1.0f, 0f);
         for (int i = 0; i < 2; i++) {
             int alpha = i == 0 ? 110 : 50;
             b.roundRect((int) (drawX - i - 1), (int) (drawY - i - 1),
@@ -159,8 +166,9 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
                     (alpha << 24) | (b1 & 0x00FFFFFF), 12 + i + 1, 1);
         }
 
-        int f1 = darken(rainbowShift(10f, 0.35f, 0.16f, 0f), 1.0f);
-        int f2 = darken(rainbowShift(10f, 0.35f, 0.10f, 0.5f), 1.0f);
+        // фон окна (фиолетовый)
+        int f1 = purpleShift(0.3f, 0f);
+        int f2 = purpleShift(0.15f, 3.0f);
         b.roundRect((int) drawX, (int) drawY, (int) drawW, (int) drawH,
                 (int) (245 * open) << 24 | (f1 & 0x00FFFFFF), 12, 2);
 
@@ -170,75 +178,112 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
         b.rect((int) (drawX + 12), (int) (drawY + 1), (int) (drawW - 24), 1,
                 (int) (60 * open) << 24 | 0x00FFFFFF, 4);
 
+        // ─── САЙДБАР ───
+        float sidebarX = drawX + PADDING;
+        float sidebarY = drawY + PADDING;
+
+        if (logoTexture != null) {
+            b.drawTexture(logoTexture, sidebarX, sidebarY, 28, 28, 0xFFFFFFFF, true, 5);
+        }
+        if (bFont != null) {
+            b.drawText(bFont, "Nexus", sidebarX + 36, sidebarY + 9, 13f, 0xFFFFFFFF, 5);
+        }
+
+        // категории
+        float catStartY = sidebarY + 40;
+        float catY = catStartY;
         var font = instance.getFontManager().getBoldFont(16);
-        float tabX = drawX + PADDING;
-        float tabY = drawY + PADDING;
-        float tabH = TAB_HEIGHT - 10;
 
-        if (!configMode) {
-            for (Category c : Category.values()) {
-                String icon = categoryIcon(c);
-                String translatedName = Translator.category(c.getName());
-                String label = (icon.isEmpty() ? "" : icon + "  ") + translatedName;
-                float tabWidth = font.getStringWidth(label) + 20;
-                boolean active = c == selectedCategory;
-                boolean hovered = mouseX >= tabX && mouseX <= tabX + tabWidth
-                        && mouseY >= tabY && mouseY <= tabY + tabH;
+        for (Category c : Category.values()) {
+            float catW = SIDEBAR_WIDTH - PADDING * 2;
+            boolean active = c == selectedCategory;
+            boolean hovered = mouseX >= sidebarX && mouseX <= sidebarX + catW
+                    && mouseY >= catY && mouseY <= catY + CAT_HEIGHT - 4;
 
-                if (active) {
-                    int c1 = rainbowShift(8f, 0.55f, 1.0f, 0f);
-                    b.roundRect((int) tabX, (int) tabY, (int) tabWidth, (int) tabH,
-                            (c1 & 0x00FFFFFF) | 0xFF000000, 7, 5);
-                    float pulse = (float) (0.5f + 0.5f * Math.sin(System.currentTimeMillis() / 400.0));
-                    int glowAlpha = (int) (60 + 50 * pulse);
-                    b.roundRect((int) (tabX - 2), (int) (tabY - 2), (int) (tabWidth + 4), (int) (tabH + 4),
-                            (glowAlpha << 24) | (c1 & 0x00FFFFFF), 9, 4);
-                } else {
-                    int bg = hovered ? new Color(50, 50, 58, 230).getRGB() : new Color(28, 28, 34, 210).getRGB();
-                    b.roundRect((int) tabX, (int) tabY, (int) tabWidth, (int) tabH, bg, 7, 5);
-                }
+            int catBg;
+            if (active) catBg = purpleShift(0.8f, 0f);
+            else if (hovered) catBg = new Color(50, 40, 70, 230).getRGB();
+            else catBg = new Color(28, 24, 34, 200).getRGB();
+
+            b.roundRect((int) sidebarX, (int) catY, (int) catW, (int) (CAT_HEIGHT - 4), catBg, 6, 5);
+
+            if (bFont != null) {
+                String label = Translator.category(c.getName());
+                int textColor = active ? 0xFFFFFFFF : 0xFFAAAAAA;
+                b.drawText(bFont, label, sidebarX + 10, catY + 7, 10f, textColor, 6);
+            }
+
+            catY += CAT_HEIGHT;
+        }
+
+        // Configs + Accounts
+        float bottomY = drawY + drawH - PADDING - 56;
+
+        boolean configHovered = mouseX >= sidebarX && mouseX <= sidebarX + SIDEBAR_WIDTH - PADDING * 2
+                && mouseY >= bottomY && mouseY <= bottomY + 22;
+        int configBg = configMode ? purpleShift(0.8f, 0f)
+                : (configHovered ? new Color(50, 40, 70, 230).getRGB() : new Color(28, 24, 34, 200).getRGB());
+        b.roundRect((int) sidebarX, (int) bottomY, (int) (SIDEBAR_WIDTH - PADDING * 2), 22, configBg, 6, 5);
+        if (bFont != null) {
+            b.drawText(bFont, "Configs", sidebarX + 10, bottomY + 6, 10f,
+                    configMode ? 0xFFFFFFFF : 0xFFAAAAAA, 6);
+        }
+
+        boolean accountsHoveredLocal = mouseX >= sidebarX && mouseX <= sidebarX + SIDEBAR_WIDTH - PADDING * 2
+                && mouseY >= bottomY + 26 && mouseY <= bottomY + 48;
+        int accBg = accountsHoveredLocal ? new Color(50, 40, 70, 230).getRGB() : new Color(28, 24, 34, 200).getRGB();
+        b.roundRect((int) sidebarX, (int) bottomY + 26, (int) (SIDEBAR_WIDTH - PADDING * 2), 22, accBg, 6, 5);
+        if (bFont != null) {
+            b.drawText(bFont, "Accounts", sidebarX + 10, bottomY + 32, 10f, 0xFFAAAAAA, 6);
+        }
+
+        // ─── ОБЛАСТЬ СПИСКА ───
+        float listX = drawX + SIDEBAR_WIDTH + PADDING;
+        float listY = drawY + PADDING;
+        float listW = drawW - SIDEBAR_WIDTH - PADDING * 2;
+        float listH = drawH - PADDING * 2;
+
+        if (configMode) {
+            for (int i = 0; i < configNames.size(); i++) {
+                String name = configNames.get(i);
+                float y = listY + i * (CONFIG_ROW_HEIGHT + ROW_GAP);
+                if (y + CONFIG_ROW_HEIGHT > listY + listH - 40) break;
+
+                boolean selected = i == selectedConfigIndex;
+                boolean hov = mouseX >= listX && mouseX <= listX + listW
+                        && mouseY >= y && mouseY <= y + CONFIG_ROW_HEIGHT;
+
+                int bg = selected ? purpleShift(0.8f, 0f)
+                        : (hov ? new Color(50, 40, 70, 230).getRGB() : new Color(30, 26, 36, 210).getRGB());
+                b.roundRect((int) listX, (int) y, (int) listW, (int) CONFIG_ROW_HEIGHT, bg, 5, 5);
 
                 if (bFont != null) {
-                    float textX = tabX + (tabWidth - font.getStringWidth(label)) / 2f;
-                    float textY = tabY + (tabH - 10) / 2f + 0.5f;
-                    b.drawText(bFont, label, textX, textY, 10f, active ? 0xFFFFFFFF : 0xFFAAAAAA, 6);
+                    b.drawText(bFont, name, listX + 10, y + 7, 10f, 0xFFFFFFFF, 6);
                 }
-                tabX += tabWidth + 5;
             }
-        }
 
-        // Кнопка Configs
-        float configBtnX = drawX + drawW - PADDING - CONFIG_BTN_WIDTH;
-        float configBtnY = drawY + PADDING + TAB_HEIGHT;
-        boolean configHovered = mouseX >= configBtnX && mouseX <= configBtnX + CONFIG_BTN_WIDTH
-                && mouseY >= configBtnY && mouseY <= configBtnY + SEARCH_HEIGHT;
-
-        int configBg;
-        if (configMode) configBg = (rainbowShift(8f, 0.55f, 1.0f, 0f) & 0x00FFFFFF) | 0xFF000000;
-        else if (configHovered) configBg = new Color(50, 50, 58, 230).getRGB();
-        else configBg = new Color(28, 28, 34, 210).getRGB();
-
-        b.roundRect((int) configBtnX, (int) configBtnY, (int) CONFIG_BTN_WIDTH, (int) SEARCH_HEIGHT,
-                configBg, 6, 5);
-
-        if (bFont != null) {
-            String configLabel = "Configs";
-            float textX = configBtnX + (CONFIG_BTN_WIDTH - font.getStringWidth(configLabel)) / 2f;
-            float textY = configBtnY + (SEARCH_HEIGHT - 10) / 2f + 0.5f;
-            b.drawText(bFont, configLabel, textX, textY, 10f, 0xFFFFFFFF, 6);
-        }
-
-        float searchY = drawY + PADDING + TAB_HEIGHT;
-        float searchW = drawW - PADDING * 2 - CONFIG_BTN_WIDTH - 6;
-
-        if (!configMode) {
-            int searchBg = searchFocused ? new Color(40, 40, 48, 245).getRGB() : new Color(28, 28, 34, 220).getRGB();
-            b.roundRect((int) (drawX + PADDING), (int) searchY, (int) searchW, (int) SEARCH_HEIGHT, searchBg, 6, 5);
+            float btnY = listY + listH - 36;
+            float btnW = (listW - 18) / 4f;
+            String[] labels = {"Save", "Load", "Create", "Delete"};
+            for (int i = 0; i < 4; i++) {
+                float bx = listX + i * (btnW + 6);
+                boolean hov = mouseX >= bx && mouseX <= bx + btnW && mouseY >= btnY && mouseY <= btnY + 24;
+                int bg = hov ? new Color(60, 50, 80, 240).getRGB() : new Color(35, 30, 42, 220).getRGB();
+                b.roundRect((int) bx, (int) btnY, (int) btnW, 24, bg, 5, 5);
+                if (bFont != null) {
+                    float tw = font.getStringWidth(labels[i]);
+                    b.drawText(bFont, labels[i], bx + (btnW - tw) / 2f, btnY + 7, 10f, 0xFFFFFFFF, 6);
+                }
+            }
+        } else {
+            // поиск
+            int searchBg = searchFocused ? new Color(45, 35, 60, 245).getRGB() : new Color(28, 24, 34, 220).getRGB();
+            b.roundRect((int) listX, (int) listY, (int) listW, (int) SEARCH_HEIGHT, searchBg, 6, 5);
 
             if (searchFocused) {
-                int accent = rainbowShift(8f, 0.55f, 1.0f, 0f);
-                b.roundRect((int) (drawX + PADDING - 1), (int) (searchY - 1),
-                        (int) (searchW + 2), (int) (SEARCH_HEIGHT + 2),
+                int accent = purpleShift(1.0f, 0f);
+                b.roundRect((int) (listX - 1), (int) (listY - 1),
+                        (int) (listW + 2), (int) (SEARCH_HEIGHT + 2),
                         (100 << 24) | (accent & 0x00FFFFFF), 7, 4);
             }
 
@@ -246,81 +291,36 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
                 String placeholder = "Поиск...";
                 String display = searchQuery.isEmpty() && !searchFocused ? placeholder : searchQuery;
                 int textColor = searchQuery.isEmpty() && !searchFocused ? 0xFF888888 : 0xFFFFFFFF;
-                b.drawText(bFont, display, drawX + PADDING + 8,
-                        searchY + (SEARCH_HEIGHT - 10) / 2f, 10f, textColor, 6);
+                b.drawText(bFont, display, listX + 8, listY + (SEARCH_HEIGHT - 10) / 2f, 10f, textColor, 6);
                 if (searchFocused && (System.currentTimeMillis() / 500) % 2 == 0) {
-                    float cursorX = drawX + PADDING + 8 + font.getStringWidth(searchQuery);
-                    b.rect((int) cursorX, (int) (searchY + 5), 1, 12, 0xFFFFFFFF, 6);
+                    float cursorX = listX + 8 + font.getStringWidth(searchQuery);
+                    b.rect((int) cursorX, (int) (listY + 5), 1, 12, 0xFFFFFFFF, 6);
                 }
             }
 
-            float listX = drawX + PADDING;
-            float listY = searchY + SEARCH_HEIGHT + 4;
-            float listW = drawW - PADDING * 2;
-            float listH = drawH - PADDING * 2 - TAB_HEIGHT - SEARCH_HEIGHT - 4;
+            float modListY = listY + SEARCH_HEIGHT + 6;
+            float modListH = listH - SEARCH_HEIGHT - 6;
 
-            float rowY = listY + scrollOffset;
+            float rowY = modListY + scrollOffset;
             for (ModuleRow row : rows) {
                 float h = row.getCurrentHeight() + ROW_GAP;
-                if (rowY + h < listY || rowY > listY + listH) { rowY += h; continue; }
+                if (rowY + h < modListY || rowY > modListY + modListH) { rowY += h; continue; }
                 row.render(context, b, bFont, listX, rowY, listW, mouseX, mouseY);
                 rowY += h;
             }
 
             float totalH = 0;
             for (ModuleRow row : rows) totalH += row.getCurrentHeight() + ROW_GAP;
-            if (totalH > listH) {
-                float barH = (listH / totalH) * listH;
-                float barY = listY + (-scrollOffset / totalH) * listH;
+            if (totalH > modListH) {
+                float barH = (modListH / totalH) * modListH;
+                float barY = modListY + (-scrollOffset / totalH) * modListH;
                 b.roundRect((int) (listX + listW - 4), (int) barY, 3, (int) barH, 0xAA_AA_AA_BE, 2, 5);
             }
             scrollOffset += (targetScroll - scrollOffset) * 0.25f;
-        } else {
-            float listX = drawX + PADDING;
-            float listY = searchY;
-            float listW = drawW - PADDING * 2;
-            float listH = drawH - PADDING * 2 - TAB_HEIGHT;
-
-            for (int i = 0; i < configNames.size(); i++) {
-                String name = configNames.get(i);
-                float y = listY + i * (CONFIG_ROW_HEIGHT + ROW_GAP);
-                if (y + CONFIG_ROW_HEIGHT > listY + listH - 40) break;
-
-                boolean selected = i == selectedConfigIndex;
-                boolean hovered = mouseX >= listX && mouseX <= listX + listW
-                        && mouseY >= y && mouseY <= y + CONFIG_ROW_HEIGHT;
-
-                int bg;
-                if (selected) bg = (rainbowShift(8f, 0.55f, 1.0f, 0f) & 0x00FFFFFF) | 0xFF000000;
-                else if (hovered) bg = new Color(50, 50, 58, 230).getRGB();
-                else bg = new Color(30, 30, 36, 210).getRGB();
-
-                b.roundRect((int) listX, (int) y, (int) listW, (int) CONFIG_ROW_HEIGHT, bg, 5, 5);
-
-                if (bFont != null) {
-                    b.drawText(bFont, name, listX + 10, y + (CONFIG_ROW_HEIGHT - 10) / 2f + 0.5f,
-                            10f, 0xFFFFFFFF, 6);
-                }
-            }
-
-            float btnY = listY + listH - 36;
-            float btnW = (listW - 18) / 4f;
-            String[] labels = {"Сохранить", "Загрузить", "Создать", "Удалить"};
-            for (int i = 0; i < 4; i++) {
-                float bx = listX + i * (btnW + 6);
-                boolean hovered = mouseX >= bx && mouseX <= bx + btnW && mouseY >= btnY && mouseY <= btnY + 24;
-                int bg = hovered ? new Color(60, 60, 70, 240).getRGB() : new Color(35, 35, 42, 220).getRGB();
-                b.roundRect((int) bx, (int) btnY, (int) btnW, 24, bg, 5, 5);
-                if (bFont != null) {
-                    float tw = font.getStringWidth(labels[i]);
-                    b.drawText(bFont, labels[i], bx + (btnW - tw) / 2f, btnY + 7, 10f, 0xFFFFFFFF, 6);
-                }
-            }
         }
 
         b.flush(context);
     }
-
     private int getAccent() {
         try {
             return instance.getModuleManager().getModule(HUD.class).getColor();
@@ -346,67 +346,51 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
         float drawY = (height - drawH) / 2f;
 
         var font = instance.getFontManager().getBoldFont(16);
-        float tabX = drawX + PADDING;
-        float tabY = drawY + PADDING;
-        float tabH = TAB_HEIGHT - 10;
 
-        float configBtnX = drawX + drawW - PADDING - CONFIG_BTN_WIDTH;
-        float configBtnY = drawY + PADDING + TAB_HEIGHT;
-        if (click.x() >= configBtnX && click.x() <= configBtnX + CONFIG_BTN_WIDTH
-                && click.y() >= configBtnY && click.y() <= configBtnY + SEARCH_HEIGHT) {
+        // сайдбар
+        float sidebarX = drawX + PADDING;
+        float sidebarY = drawY + PADDING;
+        float catStartY = sidebarY + 40;
+        float catY = catStartY;
+
+        for (Category c : Category.values()) {
+            float catW = SIDEBAR_WIDTH - PADDING * 2;
+            if (click.x() >= sidebarX && click.x() <= sidebarX + catW
+                    && click.y() >= catY && click.y() <= catY + CAT_HEIGHT - 4) {
+                if (selectedCategory != c) {
+                    selectedCategory = c;
+                    configMode = false;
+                    rebuildRows();
+                }
+                return true;
+            }
+            catY += CAT_HEIGHT;
+        }
+
+        // Configs
+        float bottomY = drawY + drawH - PADDING - 56;
+        if (click.x() >= sidebarX && click.x() <= sidebarX + SIDEBAR_WIDTH - PADDING * 2
+                && click.y() >= bottomY && click.y() <= bottomY + 22) {
             configMode = !configMode;
             if (configMode) refreshConfigs();
             else rebuildRows();
             return true;
         }
 
-        if (!configMode) {
-            for (Category c : Category.values()) {
-                String icon = categoryIcon(c);
-                String label = (icon.isEmpty() ? "" : icon + "  ") + Translator.category(c.getName());
-                float tabWidth = font.getStringWidth(label) + 20;
-                if (click.x() >= tabX && click.x() <= tabX + tabWidth
-                        && click.y() >= tabY && click.y() <= tabY + tabH) {
-                    if (selectedCategory != c) {
-                        selectedCategory = c;
-                        rebuildRows();
-                    }
-                    return true;
-                }
-                tabX += tabWidth + 5;
-            }
+        // Accounts
+        if (click.x() >= sidebarX && click.x() <= sidebarX + SIDEBAR_WIDTH - PADDING * 2
+                && click.y() >= bottomY + 26 && click.y() <= bottomY + 48) {
+            mc.setScreen(new cn.remix.ui.screen.impl.AccountManagerScreen(this));
+            return true;
         }
 
-        float searchY = drawY + PADDING + TAB_HEIGHT;
-        float searchW = drawW - PADDING * 2 - CONFIG_BTN_WIDTH - 6;
+        // список
+        float listX = drawX + SIDEBAR_WIDTH + PADDING;
+        float listY = drawY + PADDING;
+        float listW = drawW - SIDEBAR_WIDTH - PADDING * 2;
+        float listH = drawH - PADDING * 2;
 
-        if (!configMode) {
-            if (click.x() >= drawX + PADDING && click.x() <= drawX + PADDING + searchW
-                    && click.y() >= searchY && click.y() <= searchY + SEARCH_HEIGHT) {
-                searchFocused = true;
-                return true;
-            } else {
-                searchFocused = false;
-            }
-
-            float listX = drawX + PADDING;
-            float listY = searchY + SEARCH_HEIGHT + 4;
-            float listW = drawW - PADDING * 2;
-            float listH = drawH - PADDING * 2 - TAB_HEIGHT - SEARCH_HEIGHT - 4;
-
-            float rowY = listY + scrollOffset;
-            for (ModuleRow row : rows) {
-                float h = row.getCurrentHeight() + ROW_GAP;
-                if (rowY + h < listY || rowY > listY + listH) { rowY += h; continue; }
-                if (row.mouseClicked(click, listX, rowY, listW)) return true;
-                rowY += h;
-            }
-        } else {
-            float listX = drawX + PADDING;
-            float listY = searchY;
-            float listW = drawW - PADDING * 2;
-            float listH = drawH - PADDING * 2 - TAB_HEIGHT;
-
+        if (configMode) {
             for (int i = 0; i < configNames.size(); i++) {
                 float y = listY + i * (CONFIG_ROW_HEIGHT + ROW_GAP);
                 if (y + CONFIG_ROW_HEIGHT > listY + listH - 40) break;
@@ -441,6 +425,26 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
                     return true;
                 }
             }
+        } else {
+            float searchY = listY;
+            if (click.x() >= listX && click.x() <= listX + listW
+                    && click.y() >= searchY && click.y() <= searchY + SEARCH_HEIGHT) {
+                searchFocused = true;
+                return true;
+            } else {
+                searchFocused = false;
+            }
+
+            float modListY = listY + SEARCH_HEIGHT + 6;
+            float modListH = listH - SEARCH_HEIGHT - 6;
+
+            float rowY = modListY + scrollOffset;
+            for (ModuleRow row : rows) {
+                float h = row.getCurrentHeight() + ROW_GAP;
+                if (rowY + h < modListY || rowY > modListY + modListH) { rowY += h; continue; }
+                if (row.mouseClicked(click, listX, rowY, listW)) return true;
+                rowY += h;
+            }
         }
 
         return super.mouseClicked(click, doubled);
@@ -455,7 +459,7 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         if (configMode) return true;
-        float listH = WINDOW_HEIGHT - PADDING * 2 - TAB_HEIGHT - SEARCH_HEIGHT - 4;
+        float listH = WINDOW_HEIGHT - PADDING * 2 - SEARCH_HEIGHT - 6;
         float totalH = 0;
         for (ModuleRow row : rows) totalH += row.getCurrentHeight() + ROW_GAP;
         if (totalH > listH) {
@@ -519,7 +523,6 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
     public boolean shouldPause() {
         return false;
     }
-
     private static final class ModuleRow implements IMinecraft {
         private final Module module;
         private final List<Component> components = new ArrayList<>();
@@ -555,14 +558,14 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
 
         void render(DrawContext context, BRender b, BFont bFont,
                     float x, float y, float width, int mouseX, int mouseY) {
-            var font = instance.getFontManager().getBoldFont(15);
             boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + ROW_HEIGHT;
 
             hoverAnimation.run(hovered ? 1 : 0);
             float hover = hoverAnimation.getValue().floatValue();
 
             if (module.isEnabled()) {
-                int c1 = Color.HSBtoRGB((System.currentTimeMillis() % 8000) / 8000f, 0.55f, 0.95f);
+                // фиолетовое переливание для активного модуля
+                int c1 = purpleShift(1.0f, 0f);
                 b.roundRect((int) x, (int) y, (int) width, (int) ROW_HEIGHT,
                         (c1 & 0x00FFFFFF) | 0xFF000000, 5, 10);
                 float pulse = (float) (0.5f + 0.5f * Math.sin(System.currentTimeMillis() / 500.0));
@@ -571,24 +574,29 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
                         (glow << 24) | (c1 & 0x00FFFFFF), 7, 9);
             } else {
                 int bg = ColorUtil.interpolate(
-                        new Color(30, 30, 36, 210).getRGB(),
-                        new Color(54, 54, 62, 235).getRGB(),
+                        new Color(30, 26, 36, 210).getRGB(),
+                        new Color(54, 44, 64, 235).getRGB(),
                         hover);
                 b.roundRect((int) x, (int) y, (int) width, (int) ROW_HEIGHT, bg, 5, 10);
             }
 
             if (bFont != null) {
-                String label = binding
-                        ? "Бинд: " + KeyUtil.getKeyName(module.getKey())
-                        : Translator.module(module.getName());
-                b.drawText(bFont, label, x + 10, y + (ROW_HEIGHT - 10) / 2f + 0.5f, 10f,
-                        binding ? 0xFFFFCC55 : 0xFFFFFFFF, 11);
+        String label = binding
+            ? "Бинд: " + KeyUtil.getKeyName(module.getKey())
+            : Translator.module(module.getName());
+    b.drawText(bFont, label, x + 10, y + 6, 10f,
+            binding ? 0xFFFFCC55 : 0xFFFFFFFF, 11);
 
-                if (!components.isEmpty() && !binding) {
-                    b.drawText(bFont, extended ? "-" : "+",
-                            x + width - 12, y + (ROW_HEIGHT - 10) / 2f + 0.5f, 10f, 0xFFDDDDEE, 11);
-                }
-            }
+    // описание
+    if (!module.getDescription().isEmpty() && !binding) {
+        b.drawText(bFont, module.getDescription(), x + 10, y + 19, 8f, 0xFFAAAAAA, 11);
+    }
+
+    if (!components.isEmpty() && !binding) {
+        b.drawText(bFont, extended ? "▼" : "▶",
+                x + width - 28, y + 7, 10f, 0xFFDDDDEE, 11);
+    }
+}
 
             expandAnimation.run(extended ? 1 : 0);
             float progress = expandAnimation.getValue().floatValue();
@@ -614,6 +622,10 @@ public final class CelestialClickGuiScreen extends Screen implements IMinecraft 
         boolean mouseClicked(Click click, float x, float y, float width) {
             if (click.x() >= x && click.x() <= x + width
                     && click.y() >= y && click.y() <= y + ROW_HEIGHT) {
+                if (click.x() >= x + width - 35) {
+                    extended = !extended;
+                    return true;
+                }
                 if (click.button() == 0) module.toggle();
                 else if (click.button() == 1) extended = !extended;
                 else if (click.button() == 2) binding = true;

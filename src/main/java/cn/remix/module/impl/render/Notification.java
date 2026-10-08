@@ -925,7 +925,7 @@ public final class Notification extends Module {
         }
     }
 
-    private void playSound(boolean enabled) {
+        private void playSound(boolean enabled) {
         String soundValue = sound.getValue();
         SoundEvent event = null;
         if (soundValue.equals("Button")) {
@@ -948,5 +948,16 @@ public final class Notification extends Module {
 
         float pitch = enabled ? 1.15f : 0.85f;
         mc.getSoundManager().play(PositionedSoundInstance.ui(event, pitch));
-    }
+    }   // ← ЗАКРЫВАЮЩАЯ СКОБКА МЕТОДА playSound
+
+//    /** Возвращает список активных уведомлений (для HUD). */
+//    public static java.util.List<String> getActiveNotifications() {
+//        java.util.List<String> result = new java.util.ArrayList<>();
+//        long durationMillis = 2500;
+//        NotificationManager.prune(durationMillis);
+//        for (NotificationManager.NotificationEntry entry : NotificationManager.entries()) {
+//            result.add(entry.getMessage());
+//        }
+//        return result;
+//    }
 }

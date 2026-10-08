@@ -35,14 +35,13 @@ public class MixinTitleScreen {
         if (customMenu) return;
 
         TitleScreen screen = (TitleScreen) (Object) this;
-        ButtonWidget button = ButtonWidget.builder(Text.literal("Remix Menu"), btn -> {
+        ButtonWidget button = ButtonWidget.builder(Text.literal("Nexus Menu"), btn -> {
                     System.setProperty(CUSTOM_MENU_KEY, "true");
                     mc.setScreen(new MainMenu());
                 })
                 .dimensions(10, screen.height - 36, 110, 20)
                 .build();
 
-        // addDrawableChild 是 protected 泛型方法，mixin @Shadow 泛型签名难匹配，改用反射
         try {
             Method m = Screen.class.getDeclaredMethod("addDrawableChild", Element.class);
             m.setAccessible(true);

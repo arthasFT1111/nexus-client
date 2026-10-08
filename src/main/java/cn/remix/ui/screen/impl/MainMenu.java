@@ -1,25 +1,15 @@
 package cn.remix.ui.screen.impl;
 
-import cn.remix.ui.font.TrueTypeFont;
 import cn.remix.ui.screen.AbstractScreen;
-import cn.remix.ui.screen.impl.proxy.ProxyScreen;
-import cn.remix.ui.screen.impl.token.TokenScreen;
 import cn.remix.ui.screen.util.AdaptiveButton;
-import cn.remix.util.render.Render2D;
-import injection.MixinTitleScreen;
+import dev.bsprout.brapi.client.BRender;
+import dev.bsprout.brapi.client.BTexture;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.screen.option.OptionsScreen;
-import net.minecraft.client.gui.screen.world.SelectWorldScreen;
 import net.minecraft.util.Identifier;
-
-import java.awt.*;
 
 public class MainMenu extends AbstractScreen {
 
-    private static final Identifier LOGO = Identifier.of("remix", "textures/mainmenu/remix.png");
-    private static final Identifier BACKGROUND = Identifier.of("remix", "textures/mainmenu/background.png");
+    private BTexture logoTexture;
 
     public MainMenu() {
         super("Main Menu");
@@ -27,94 +17,99 @@ public class MainMenu extends AbstractScreen {
 
     @Override
     protected void initScreen() {
-        buttons.clear();
+        if (logoTexture == null) {
+            try {
+                logoTexture = new BTexture(Identifier.of("remix", "textures/gui/logo.png"));
+            } catch (Exception e) {
+                logoTexture = null;
+            }
+        }
 
         float centerX = this.width / 2f;
         float centerY = this.height / 2f;
-        float gap = 30f;
-        float buttonWidth = 200f;
-        float buttonHeight = 26f;
-        float startY = centerY + 20f;
 
-        AdaptiveButton single = new AdaptiveButton("Singleplayer", () -> mc.setScreen(new OwnSelectWorldScreen(this)));
-        single.setBounds(centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight);
-        buttons.add(single);
+        AdaptiveButton singleplayer = new AdaptiveButton("Singleplayer",
+                () -> mc.setScreen(new net.minecraft.client.gui.screen.world.SelectWorldScreen(this)));
+        singleplayer.setBounds(centerX - 100, centerY - 40, 200, 24);
+        buttons.add(singleplayer);
 
-        AdaptiveButton multi = new AdaptiveButton("Multiplayer", () -> mc.setScreen(new MultiplayerScreen(this)));
-        multi.setBounds(centerX - buttonWidth / 2, startY + gap, buttonWidth, buttonHeight);
-        buttons.add(multi);
+        AdaptiveButton multiplayer = new AdaptiveButton("Multiplayer",
+                () -> mc.setScreen(new net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen(this)));
+        multiplayer.setBounds(centerX - 100, centerY - 10, 200, 24);
+        buttons.add(multiplayer);
 
-        AdaptiveButton token = new AdaptiveButton("Token Manager", () -> mc.setScreen(new TokenScreen(this)));
-        token.setBounds(centerX - buttonWidth / 2, startY + gap * 2, buttonWidth, buttonHeight);
-        buttons.add(token);
-
-        float halfWidth = 97f;
-        AdaptiveButton options = new AdaptiveButton("Options", () -> mc.setScreen(new OptionsScreen(this, mc.options)));
-        options.setBounds(centerX - halfWidth - 3f, startY + gap * 3, halfWidth, buttonHeight);
+        AdaptiveButton options = new AdaptiveButton("Options",
+                () -> mc.setScreen(new net.minecraft.client.gui.screen.option.OptionsScreen(this, mc.options)));
+        options.setBounds(centerX - 100, centerY + 20, 200, 24);
         buttons.add(options);
 
-        AdaptiveButton proxy = new AdaptiveButton("Proxy", () -> mc.setScreen(new ProxyScreen(this)));
-        proxy.setBounds(centerX + 3f, startY + gap * 3, halfWidth, buttonHeight);
-        buttons.add(proxy);
+        AdaptiveButton accountManager = new AdaptiveButton("Account Manager",
+                () -> mc.setScreen(new AccountManagerScreen(this)));
+        accountManager.setBounds(centerX - 100, centerY + 50, 200, 24);
+        buttons.add(accountManager);
 
-        AdaptiveButton quit = new AdaptiveButton("Quit", mc::close);
-        quit.setBounds(centerX - buttonWidth / 2, startY + gap * 4, buttonWidth, buttonHeight);
-        buttons.add(quit);
-
-        
-        AdaptiveButton vanillaBtn = new AdaptiveButton("Vanilla Menu", () -> {
-            System.setProperty("remix.custom_menu", "false");
-            mc.setScreen(new TitleScreen());
-        });
-        vanillaBtn.setBounds(10, this.height - 36, 100, 26);
-        buttons.add(vanillaBtn);
+        AdaptiveButton exit = new AdaptiveButton("Exit", () -> mc.scheduleStop());
+        exit.setBounds(centerX - 100, centerY + 80, 200, 24);
+        buttons.add(exit);
     }
 
     @Override
     protected void renderScreen(DrawContext context, int mouseX, int mouseY, float delta) {
-        float screenWidth = this.width;
-        float screenHeight = this.height;
-        float centerX = screenWidth / 2f;
-        float centerY = screenHeight / 2f;
+        // ─── градиент (всегда) ───
+        float t = (float) ((Math.sin(System.currentTimeMillis() / 3000.0) + 1.0) / 2.0);
 
-        Render2D.drawTexture(context, BACKGROUND, 0, 0, screenWidth, screenHeight, 0, 0, 1, 1, 0xFFFFFFFF);
+        int r1 = (int) (10 + 15 * t);
+        int g1 = (int) (5 + 5 * t);
+        int b1 = (int) (20 + 25 * t);
 
-        Render2D.drawRect(context, 0, 0, screenWidth, screenHeight, new Color(0, 0, 0, 70).getRGB());
+        int r2 = 5;
+        int g2 = 2;
+        int b2 = 10;
 
-        float logoSize = 72f;
-        float logoX = (screenWidth - logoSize) / 2f;
-        float logoY = screenHeight * 0.18f;
-        Render2D.drawTexture(context, LOGO, logoX, logoY, logoSize, logoSize);
+        int c1 = (255 << 24) | (r1 << 16) | (g1 << 8) | b1;
+        int c2 = (255 << 24) | (r2 << 16) | (g2 << 8) | b2;
 
-        TrueTypeFont font28 = instance.getFontManager().getFont(28);
-        String title = "Remix Client Fork By Sling";
-        float titleX = (screenWidth - font28.getStringWidth(title)) / 2f;
-        float titleY = logoY + logoSize + 24f;
-        font28.drawString(context, title, titleX, titleY, new Color(255, 255, 255, 220).getRGB(), false);
+        int steps = 32;
+        for (int i = 0; i < steps; i++) {
+            float ratio = i / (float) steps;
+            int color = interpolate(c2, c1, ratio);
+            int y1 = (int) (this.height * ratio);
+            int y2 = (int) (this.height * (ratio + 1f / steps)) + 1;
+            context.fill(0, y1, this.width, y2, color);
+        }
 
-        TrueTypeFont font12 = instance.getFontManager().getFont(12);
-        String version = "v1.0.0 | MC 1.21.11";
-        float verX = (screenWidth - font12.getStringWidth(version)) / 2f;
-        float verY = titleY + 24f;
-        font12.drawString(context, version, verX, verY, new Color(180, 185, 200, 130).getRGB(), false);
+        // ─── дальше — только если Client готов ───
+        if (instance == null || instance.getFontManager() == null) return;
 
-        float gap = 30f;
-        float buttonWidth = 200f;
-        float startY = centerY + 20f;
-        float cardWidth = buttonWidth + 40f;
-        float cardHeight = gap * 5 + 30f;
-        float cardX = centerX - cardWidth / 2;
-        float cardY = startY - 15f;
-        Render2D.drawRect(context, cardX, cardY, cardWidth, cardHeight, new Color(0, 0, 0, 80).getRGB());
+        // лого Nexus
+        if (logoTexture != null) {
+            BRender b = new BRender();
+            float logoSize = 96;
+            float logoX = (this.width - logoSize) / 2f;
+            float logoY = this.height / 2f - 220;
+            b.drawTexture(logoTexture, logoX, logoY, logoSize, logoSize, 0xFFFFFFFF, true, 0);
+            b.flush(context);
+        }
 
+        // заголовок
+        var font = instance.getFontManager().getFont(48);
+        String title = "Nexus";
+        float titleWidth = font.getStringWidth(title);
+        font.drawString(context, title, (this.width - titleWidth) / 2f, this.height / 2f - 110, 0xFFFFFFFF, false);
+
+        // кнопки
         for (AdaptiveButton btn : buttons) {
             btn.render(context, mouseX, mouseY, delta);
         }
+    }
 
-        String userText = mc.getSession() != null ? mc.getSession().getUsername() : "Player";
-        String footerText = "Logged in as " + userText;
-        float footerX = screenWidth - font12.getStringWidth(footerText) - 14;
-        float footerY = screenHeight - 22;
-        font12.drawString(context, footerText, footerX, footerY, new Color(180, 185, 200, 100).getRGB(), false);
+    private static int interpolate(int c1, int c2, float ratio) {
+        int a1 = (c1 >> 24) & 0xFF, r1 = (c1 >> 16) & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = c1 & 0xFF;
+        int a2 = (c2 >> 24) & 0xFF, r2 = (c2 >> 16) & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = c2 & 0xFF;
+        int a = (int) (a1 + (a2 - a1) * ratio);
+        int r = (int) (r1 + (r2 - r1) * ratio);
+        int g = (int) (g1 + (g2 - g1) * ratio);
+        int b = (int) (b1 + (b2 - b1) * ratio);
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 }

@@ -2,7 +2,6 @@ package cn.remix.module.impl.render;
 
 import cn.remix.module.Category;
 import cn.remix.module.Module;
-import cn.remix.module.impl.combat.TpAura;
 import cn.remix.module.value.impl.BoolValue;
 import cn.remix.module.value.impl.ColorValue;
 import cn.remix.module.value.impl.ModeValue;
@@ -56,11 +55,6 @@ public final class GlowESP extends Module {
             return false;
         }
 
-        TpAura tpAura = getModule(TpAura.class);
-        if (tpAura.isEnabled() && tpAura.getHighlightTarget().is("Glow") && tpAura.getTarget() == entity) {
-            return true;
-        }
-
         if (entity instanceof LivingEntity living && (!living.isAlive() || living.isSpectator())) {
             return false;
         }
@@ -82,11 +76,6 @@ public final class GlowESP extends Module {
     }
 
     public int getGlowColor(Entity entity) {
-        TpAura tpAura = getModule(TpAura.class);
-        if (tpAura.isEnabled() && tpAura.getHighlightTarget().is("Glow") && tpAura.getTarget() == entity) {
-            return new Color(255, 105, 180).getRGB();
-        }
-
         if (highlightHurt.getValue() && entity instanceof LivingEntity living && living.hurtTime > 0) {
             return HURT_COLOR;
         }

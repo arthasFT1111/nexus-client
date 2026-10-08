@@ -1,50 +1,23 @@
 {
   "required": true,
-  "minVersion": "0.8",
   "package": "injection",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [],
-  "client": [
-    "MixinAbstractBlockState",
-    "MixinBiome",
-    "MixinCamera",
-    "MixinChatInputSuggestor",
-    "MixinChatScreen",
-    "MixinClientConnection",
-    "MixinClientConnection$Proxy",
-    "MixinClientPlayerEntity",
-    "MixinClientPlayerInteractionManager",
-    "MixinCobwebBlock",
-    "MixinEntity",
-    "MixinGameRenderer",
-    "MixinHeldItemRenderer",
-    "MixinInGameHud",
-    "MixinItemEntityRenderer",
-    "MixinItemCooldownManager",
-    "MixinKeyboard",
-    "MixinKeyboardInput",
-    "MixinLivingEntity",
-    "MixinLivingEntityRenderer",
-    "MixinMinecraftClient",
-    "MixinMouse",
-    "MixinNetworkThreadUtils",
-    "MixinPlayerEntity",
-    "MixinServerPlayerInteractionManager",
-    "MixinSoundSystem",
-    "MixinTitleScreen",
+  "mixins": [
     "accessor.ClientPlayerEntityAccessor",
     "accessor.ClientWorldAccessor",
     "accessor.EntityAccessor",
     "accessor.EntityVelocityUpdateS2CPacketAccessor",
     "accessor.MinecraftClientAccessor",
     "accessor.NativeImageAccessor",
-    "accessor.PlayerMoveC2SPacketAccessor",
-    "MixinWindowIcon"
+    "accessor.PlayerMoveC2SPacketAccessor"
+  ],
+  "client": [
+    "MixinTitleScreen",
+    "MixinHeldItemRenderer",
+    "MixinLivingEntityRenderer",
+    "MixinKeyboard"
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "overwrites": {
-    "requireAnnotations": true
   }
 }

@@ -12,7 +12,8 @@ public enum Category {
     Player("Player"),
     World("World"),
     Misc("Misc"),
-    Render("Render");
+    Render("Render"),
+    HUD("HUD");   // ← добавлено
 
     public final String name;
 }

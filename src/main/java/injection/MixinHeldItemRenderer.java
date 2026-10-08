@@ -1,7 +1,6 @@
 package injection;
 
 import cn.remix.module.impl.combat.Aura;
-import cn.remix.module.impl.combat.TpAura;
 import cn.remix.module.impl.render.Animation;
 import cn.remix.util.IMinecraft;
 import cn.remix.util.player.ItemSpoofUtil;
@@ -75,7 +74,6 @@ public abstract class MixinHeldItemRenderer implements IMinecraft {
     private void renderFirstPersonItem(AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand, float swingProgress, ItemStack item, float equipProgress, MatrixStack matrices, OrderedRenderCommandQueue orderedRenderCommandQueue, int light, CallbackInfo ci) {
         Animation animation = instance.getModuleManager().getModule(Animation.class);
         Aura aura = instance.getModuleManager().getModule(Aura.class);
-        TpAura tpAura = instance.getModuleManager().getModule(TpAura.class);
 
         if (!animation.isEnabled()) {
             return;
@@ -91,7 +89,7 @@ public abstract class MixinHeldItemRenderer implements IMinecraft {
             boolean bl = hand == Hand.MAIN_HAND;
             Arm arm = bl ? player.getMainArm() : player.getMainArm().getOpposite();
 
-            if (bl) { 
+            if (bl) {
                 ItemStack spoofedSlot = ItemSpoofUtil.getStack();
                 item = spoofedSlot != null ? spoofedSlot : item;
             }
@@ -156,7 +154,7 @@ public abstract class MixinHeldItemRenderer implements IMinecraft {
                             this.applyEquipOffset(matrices, arm, equipProgress);
                             break;
                         case BLOCK:
-                            if (item.isIn(ItemTags.SWORDS) && (this.offHand.isEmpty() || aura.isRenderBlock() || tpAura.isRenderBlock())) {
+                            if (item.isIn(ItemTags.SWORDS) && (this.offHand.isEmpty() || aura.isRenderBlock())) {
                                 this.blockAnimation(swingProgress, equipProgress, matrices, arm, l, animation);
                             } else {
                                 this.applyEquipOffset(matrices, arm, equipProgress);
@@ -225,7 +223,7 @@ public abstract class MixinHeldItemRenderer implements IMinecraft {
                     matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((float)l * -85.0F));
                 } else {
                     boolean isSwordBlock = item.isIn(ItemTags.SWORDS) && mc.options.useKey.isPressed() && this.offHand.isEmpty();
-                    if (isSwordBlock || ((aura.isRenderBlock() || tpAura.isRenderBlock()) && hand == Hand.MAIN_HAND && item.isIn(ItemTags.SWORDS))) {
+                    if (isSwordBlock || (aura.isRenderBlock() && hand == Hand.MAIN_HAND && item.isIn(ItemTags.SWORDS))) {
                         this.blockAnimation(swingProgress, equipProgress, matrices, arm, l, animation);
                     } else {
                         this.swingArm(swingProgress, equipProgress, matrices, l, arm);

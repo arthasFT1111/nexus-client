@@ -38,7 +38,6 @@ public abstract class AbstractScreen extends Screen implements IMinecraft {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        Render2D.drawRect(context, 0, 0, this.width, this.height, new Color(28, 28, 28).getRGB());
         renderScreen(context, mouseX, mouseY, delta);
         for (AdaptiveTextBox box : textBoxes) {
             box.render(context);

@@ -1,285 +1,537 @@
 package cn.remix.module.impl.render;
 
-import cn.remix.Client;
-import cn.remix.event.base.annotation.EventTarget;
-import cn.remix.event.impl.ChatScreenEvent;
-import cn.remix.event.impl.KeyInputEvent;
-import cn.remix.event.impl.Render2DEvent;
 import cn.remix.module.Category;
 import cn.remix.module.Module;
-import cn.remix.module.impl.exploits.Disabler;
-import cn.remix.module.impl.move.Fly;
-import cn.remix.module.impl.world.Scaffold;
 import cn.remix.module.value.impl.BoolValue;
 import cn.remix.module.value.impl.ColorValue;
-import cn.remix.module.value.impl.ModeValue;
-import cn.remix.module.value.impl.MultiBoolValue;
-import cn.remix.ui.font.TrueTypeFont;
-import cn.remix.ui.hud.Drag;
+import cn.remix.module.value.impl.NumberValue;
 import cn.remix.util.animation.Easing;
 import cn.remix.util.animation.EasingAnimation;
-import cn.remix.util.misc.RomanNumeralUtil;
-import cn.remix.util.player.MovementUtil;
 import cn.remix.util.render.ColorUtil;
-import cn.remix.util.render.Render2D;
-import cn.remix.util.render.LiquidGlassUtil;
-import lombok.Getter;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.resource.language.I18n;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffectUtil;
-import net.minecraft.util.Formatting;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.Identifier;
 
-import java.awt.*;
+import dev.bsprout.brapi.client.BFont;
+import dev.bsprout.brapi.client.BRender;
+import dev.bsprout.brapi.client.BTexture;
+import dev.bsprout.brapi.client.Gradient;
+import dev.bsprout.brapi.client.GradientDirection;
+
+import java.awt.Color;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 
-@Getter
-@SuppressWarnings({"unused", "SpellCheckingInspection"})
-public class HUD extends Module {
-    private final ModeValue colorMode = new ModeValue("Color Setting", "Rainbow", "Rainbow", "Fade", "Custom");
-    private final ColorValue mainColor = new ColorValue("Main Color", Color.WHITE);
-    private final ColorValue secondColor = new ColorValue("Second Color", Color.WHITE, () -> colorMode.is("Fade"));
+public final class HUD extends Module {
 
-    public final MultiBoolValue hudOptionsProperty = new MultiBoolValue("HUD Options",
-            new BoolValue("TabGUI", true),
-            new BoolValue("Watermark", true),
-            new BoolValue("Potion Effects", true),
-            new BoolValue("Display", true),
-            new BoolValue("Position", true),
-            new BoolValue("Indicators", true)
-    );
-
-    private final BoolValue noPotionIcons = new BoolValue("No Potion Icons", true);
+    // ─── Общие настройки ───
+    private final ColorValue mainColor = new ColorValue("Main Color", new Color(90, 120, 255));
+    private final ColorValue secondColor = new ColorValue("Second Color", new Color(160, 90, 255));
     private final BoolValue whiteMode = new BoolValue("White Mode", false);
-    private final EasingAnimation yAnimation = new EasingAnimation(Easing.EASE_OUT_QUART, 250);
-    private final EasingAnimation selectorAnimation = new EasingAnimation(Easing.EASE_OUT_QUART, 200);
-    private final EasingAnimation moduleAnimation = new EasingAnimation(Easing.EASE_OUT_QUART, 200);
-    private final EasingAnimation expandAnimationX = new EasingAnimation(Easing.EASE_OUT_QUART, 200);
-    private final EasingAnimation expandAnimationY = new EasingAnimation(Easing.EASE_OUT_QUART, 200);
-    private final List<Category> categories = Arrays.stream(Category.values()).toList();
+    private final BoolValue noPotionIcons = new BoolValue("No Potion Icons", false);
 
-    private int current, moduleIndex;
-    private boolean expanded;
+    // ─── Rainbow ───
+    private final BoolValue rainbowBg = new BoolValue("Rainbow BG", true);
+    private final NumberValue rainbowSpeed = new NumberValue("Rainbow Speed", 6, 1, 20);
+
+    // ─── Watermark ───
+    private final BoolValue wmEnabled = new BoolValue("Watermark", true);
+    private final NumberValue wmX = new NumberValue("Watermark X", 5, 0, 2000);
+    private final NumberValue wmY = new NumberValue("Watermark Y", 5, 0, 2000);
+    private final BoolValue wmFps = new BoolValue("Watermark FPS", true);
+    private final BoolValue wmPing = new BoolValue("Watermark Ping", true);
+    private final BoolValue wmTps = new BoolValue("Watermark TPS", true);
+    private final BoolValue wmTime = new BoolValue("Watermark Time", true);
+
+    // ─── Coordinates ───
+    private final BoolValue coordsEnabled = new BoolValue("Coordinates", true);
+    private final NumberValue coordsX = new NumberValue("Coordinates X", 5, 0, 2000);
+    private final NumberValue coordsY = new NumberValue("Coordinates Y", 30, 0, 2000);
+
+    // ─── ArmorHUD ───
+    private final BoolValue armorEnabled = new BoolValue("ArmorHUD", true);
+    private final NumberValue armorX = new NumberValue("Armor X", 5, 0, 2000);
+    private final NumberValue armorY = new NumberValue("Armor Y", 55, 0, 2000);
+
+    // ─── TargetHUD ───
+    private final BoolValue targetEnabled = new BoolValue("TargetHUD", true);
+    private final NumberValue targetX = new NumberValue("Target X", 300, 0, 2000);
+    private final NumberValue targetY = new NumberValue("Target Y", 300, 0, 2000);
+
+    // ─── Binds ───
+    private final BoolValue bindsEnabled = new BoolValue("Binds", true);
+    private final NumberValue bindsX = new NumberValue("Binds X", 5, 0, 2000);
+    private final NumberValue bindsY = new NumberValue("Binds Y", 100, 0, 2000);
+
+    // ─── StaffList ───
+    private final BoolValue staffEnabled = new BoolValue("StaffList", true);
+    private final NumberValue staffX = new NumberValue("Staff X", 400, 0, 2000);
+    private final NumberValue staffY = new NumberValue("Staff Y", 5, 0, 2000);
+
+    // ─── Notifications ───
+    private final BoolValue notifEnabled = new BoolValue("Notifications", true);
+    private final NumberValue notifX = new NumberValue("Notif X", 400, 0, 2000);
+    private final NumberValue notifY = new NumberValue("Notif Y", 100, 0, 2000);
+
+    // ─── Цвета ───
+    private final ColorValue color1 = new ColorValue("Color 1", new Color(40, 40, 80));
+    private final ColorValue color2 = new ColorValue("Color 2", new Color(15, 15, 30));
+    private final ColorValue accent = new ColorValue("Accent", new Color(90, 120, 255));
+
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+
+    private BFont bFont;
+    private BTexture logoTexture;
+
+    private final List<HudPart> parts = new ArrayList<>();
 
     public HUD() {
         super("HUD", Category.Render);
-        setEnabled(true);
     }
 
-    @EventTarget
-    public void onRender2D(Render2DEvent event) {
-        if (mc.player == null || mc.world == null) return;
-
-        DrawContext context = event.getContext();
-        TrueTypeFont font20 = instance.getFontManager().getFont(20);
-        TrueTypeFont font16 = instance.getFontManager().getFont(16);
-        TrueTypeFont font18b = instance.getFontManager().getFont(18);
-        int sw = mc.getWindow().getScaledWidth();
-        int sh = mc.getWindow().getScaledHeight();
-        float height = font20.getHeight();
-
-
-        for (Module module : instance.getModuleManager().getModuleMap().values()) {
-            if (module instanceof TargetHUD targetHUD && targetHUD.shouldRenderAnimated()) {
-                targetHUD.render(context);
-                targetHUD.updatePos();
-            } else if (module instanceof Drag drag && drag.isEnabled()) {
-                drag.render(context);
-                drag.updatePos();
-            }
-        }
-        getModule(Scaffold.class).renderHud(context);
-        getModule(Fly.class).renderHud(context);
-
-        yAnimation.run(mc.currentScreen instanceof ChatScreen ? 14 : 0);
-
-        if (hudOptionsProperty.isEnabled("Display")) {
-            Disabler disabler = getModule(Disabler.class);
-            if (disabler.isEnabled()) {
-                String text;
-
-                if (disabler.isWaiting()) {
-                    text = Formatting.RED + "!! ALERT: DISABLER DISABLED !!";
-                } else {
-                    text = String.valueOf(disabler.getPacketQueue().size());
-                }
-
-                float textWidth = font18b.getStringWidth(text);
-                float textX = (sw - textWidth) / 2f;
-                float textY = 60;
-
-                font18b.drawStringWithShadow(context, text, textX, textY, getWhiteMode().getValue() ? -1 : getColor());
-            }
-        }
-
-        if (hudOptionsProperty.isEnabled("Watermark")) {
-            String text = Client.name + " " + Client.version;
-
-            String firstChar = text.substring(0, 1);
-            font20.drawStringWithShadow(context, firstChar, 2, 0, getColor());
-
-            String remainder = Formatting.GRAY + text.substring(1);
-            font20.drawStringWithShadow(context, remainder, 2 + font20.getStringWidth(firstChar), 0, -1);
-        }
-
-        if (hudOptionsProperty.isEnabled("Position")) {
-            int fps = mc.getCurrentFps();
-            int tps = (int) mc.world.getTickManager().getTickRate();
-            double bps = MovementUtil.getBPS();
-
-            String xyzText = "XYZ: ";
-            String xyzVal = Math.round(mc.player.getX()) + " " + Math.round(mc.player.getY()) + " " + Math.round(mc.player.getZ()) + " ";
-            String fpsText = "FPS: ";
-            String fpsVal = fps + " ";
-            String tpsText = "TPS: ";
-            String tpsVal = tps + " ";
-            String bpsText = "BPS: ";
-            String bpsVal = String.valueOf(bps);
-
-            float px = 2;
-            float py = sh - height - yAnimation.getValue().floatValue();
-
-            font20.drawStringWithShadow(context, xyzText, px, py, getModule(HUD.class).getWhiteMode().getValue() ? -1 : getColor());
-            px += font20.getStringWidth(xyzText);
-            font20.drawStringWithShadow(context, Formatting.GRAY + xyzVal, px, py, -1);
-            px += font20.getStringWidth(xyzVal);
-
-            font20.drawStringWithShadow(context, fpsText, px, py, getModule(HUD.class).getWhiteMode().getValue() ? -1 : getColor());
-            px += font20.getStringWidth(fpsText);
-            font20.drawStringWithShadow(context, Formatting.GRAY + fpsVal, px, py, -1);
-            px += font20.getStringWidth(fpsVal);
-
-            font20.drawStringWithShadow(context, tpsText, px, py, getModule(HUD.class).getWhiteMode().getValue() ? -1 : getColor());
-            px += font20.getStringWidth(tpsText);
-            font20.drawStringWithShadow(context, Formatting.GRAY + tpsVal, px, py, -1);
-            px += font20.getStringWidth(tpsVal);
-
-            font20.drawStringWithShadow(context, bpsText, px, py, getModule(HUD.class).getWhiteMode().getValue() ? -1 : getColor());
-            px += font20.getStringWidth(bpsText);
-            font20.drawStringWithShadow(context, Formatting.GRAY + bpsVal, px, py, -1);
-        }
-
-        if (hudOptionsProperty.isEnabled("Potion Effects")) {
-            List<StatusEffectInstance> potions = new ArrayList<>(mc.player.getStatusEffects());
-            potions.sort(Comparator.comparingDouble(e -> -font20.getStringWidth(I18n.translate(e.getEffectType().value().getTranslationKey()))));
-
-            float fontH = font20.getHeight();
-            float basePy = sh - height - 2 - yAnimation.getValue().floatValue();
-
-            String infoText = "fork by Slingerspir";
-            font20.drawStringWithShadow(context, infoText, sw - font20.getStringWidth(infoText) - 2, basePy, -1);
-
-            int count = 0;
-            for (StatusEffectInstance effect : potions) {
-                StatusEffect potion = effect.getEffectType().value();
-                String name = I18n.translate(potion.getTranslationKey()) + (effect.getAmplifier() > 0 ? " " + RomanNumeralUtil.generate(effect.getAmplifier() + 1) : "");
-
-                String durationStr;
-                if (effect.getDuration() >= 100000000 || effect.isInfinite() || effect.getDuration() < 0) {
-                    durationStr = "**:**";
-                } else {
-                    durationStr = StatusEffectUtil.getDurationText(effect, 1, mc.world.getTickManager().getTickRate()).getString();
-                }
-
-                String text = name + Formatting.WHITE + ": " + Formatting.GRAY + durationStr;
-                float py = basePy - fontH - (fontH * count);
-                font20.drawStringWithShadow(context, text, sw - font20.getStringWidth(text) - 2, py, potion.getColor() | 0xFF000000);
-                count++;
-            }
-        }
-
-        if (hudOptionsProperty.isEnabled("TabGUI")) {
-            int x = 2, y = (int) font20.getHeight(), categoryWidth = 80, itemHeight = 13;
-            int categoryHeight = categories.size() * itemHeight;
-            selectorAnimation.run(current * itemHeight);
-
-            if (LiquidGlassUtil.isGlass()) {
-                LiquidGlassUtil.drawGlass(context, x, y, categoryWidth, categoryHeight);
-            } else {
-                Render2D.drawRect(context, x, y, categoryWidth, categoryHeight, new Color(23, 23, 23).getRGB());
-            }
-            Render2D.drawGradient(context, x, y + selectorAnimation.getValue().floatValue(), categoryWidth, itemHeight, getColor(), getColor(4), true);
-            for (int i = 0; i < categories.size(); i++) {
-                font16.drawStringWithShadow(context, Translator.category(categories.get(i).name()), x + 4, y + 1.5f + i * itemHeight, -1);
-            }
-
-            List<Module> modules = instance.getModuleManager().getModuleMap().values().stream().filter(m -> m.getCategory() == categories.get(current)).toList();
-            if (modules.isEmpty()) return;
-
-            int width = 0;
-            for (Module m : modules) width = (int) Math.max(font16.getStringWidth(Translator.module(m.getName())) + 5, width);
-
-            expandAnimationX.run(expanded ? width : 0);
-            expandAnimationY.run(expanded ? modules.size() * itemHeight : 0);
-            moduleAnimation.run(moduleIndex * itemHeight);
-
-            float expandX = expandAnimationX.getValue().floatValue(), expandY = expandAnimationY.getValue().floatValue(), moduleY = moduleAnimation.getValue().floatValue();
-            if (expandX < 1 || expandY < 1) return;
-
-            float boxX = x + categoryWidth, boxY = y + current * itemHeight;
-            if (LiquidGlassUtil.isGlass()) {
-                LiquidGlassUtil.drawGlass(context, boxX, boxY, expandX, expandY);
-            } else {
-                Render2D.drawRect(context, boxX, boxY, expandX, expandY, new Color(0, 0, 0, 180).getRGB());
-            }
-            Render2D.beginScissor(context, boxX, boxY, expandX, expandY);
-            if (expanded)
-                Render2D.drawRect(context, boxX, boxY + moduleY, width, 12, new Color(0, 0, 0, 120).getRGB());
-            for (int i = 0; i < modules.size(); i++) {
-                font16.drawStringWithShadow(context, Translator.module(modules.get(i).getName()), boxX + 2, boxY + i * itemHeight + 1.5f, modules.get(i).isEnabled() ? -1 : Color.LIGHT_GRAY.getRGB());
-            }
-            Render2D.endScissor(context);
+    @Override
+    public void onEnable() {
+        if (parts.isEmpty()) {
+            parts.add(new WatermarkPart());
+            parts.add(new CoordinatesPart());
+            parts.add(new ArmorPart());
+            parts.add(new TargetPart());
+            parts.add(new BindsPart());
+            parts.add(new StaffPart());
+            parts.add(new NotifPart());
         }
     }
 
-    @EventTarget
-    public void onChatScreen(ChatScreenEvent event) {
-        if (mc.player == null || mc.world == null) return;
+    // ═══════════════════════════════════════════
+    // Совместимость со старым HUD
+    // ═══════════════════════════════════════════
 
-        for (Module module : instance.getModuleManager().getModuleMap().values()) {
-            if (module instanceof Drag drag && drag.isEnabled()) {
-                drag.onChatGUI(event.getMouseX(), event.getMouseY(), GLFW.glfwGetMouseButton(mc.getWindow().getHandle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS);
-            }
-        }
-    }
-
-    @EventTarget
-    public void onKey(KeyInputEvent event) {
-        if (mc.currentScreen != null) return;
-        int code = event.getKey();
-        List<Module> modules = instance.getModuleManager().getModuleMap().values().stream().filter(m -> m.getCategory() == categories.get(current)).toList();
-
-        if (!expanded) {
-            if (code == GLFW.GLFW_KEY_DOWN && current < categories.size() - 1) { current++; expandAnimationX.setValue(0); expandAnimationY.setValue(0); }
-            if (code == GLFW.GLFW_KEY_UP && current > 0) { current--; expandAnimationX.setValue(0); expandAnimationY.setValue(0); }
-            if (code == GLFW.GLFW_KEY_RIGHT) { expanded = true; moduleIndex = 0; }
-        } else {
-            if (code == GLFW.GLFW_KEY_DOWN && modules.size() > moduleIndex + 1) moduleIndex++;
-            if (code == GLFW.GLFW_KEY_UP && moduleIndex > 0) moduleIndex--;
-            if (code == GLFW.GLFW_KEY_LEFT) { expanded = false; moduleIndex = 0; }
-            if ((code == GLFW.GLFW_KEY_RIGHT || code == GLFW.GLFW_KEY_ENTER) && !modules.isEmpty()) modules.get(moduleIndex).toggle();
-        }
-    }
+    public ColorValue getMainColor() { return mainColor; }
+    public ColorValue getSecondColor() { return secondColor; }
+    public BoolValue getWhiteMode() { return whiteMode; }
+    public BoolValue getNoPotionIcons() { return noPotionIcons; }
 
     public int getColor() {
-        return getColor(0);
+        return mainColor.getValue().getRGB();
     }
 
-    public int getColor(int counter) {
-        return getColor(counter, 255);
+    public int getColor(int index) {
+        int c1 = mainColor.getValue().getRGB();
+        int c2 = secondColor.getValue().getRGB();
+        float ratio = (index % 8) / 8f;
+        return ColorUtil.interpolate(c1, c2, ratio);
     }
 
-    public int getColor(int counter, int alpha) {
-        return switch (colorMode.getValue()) {
-            case "Rainbow" -> ColorUtil.getRainbow(counter, alpha);
-            case "Fade" -> ColorUtil.getFade(counter, alpha);
-            default -> ColorUtil.getCustom(alpha);
-        };
+    // ═══════════════════════════════════════════
+    // Рендер
+    // ═══════════════════════════════════════════
+
+    public void renderHud(DrawContext ctx) {
+        if (mc.player == null || mc.world == null) return;
+
+        if (bFont == null) {
+            try {
+                bFont = new BFont(Identifier.of("brapi", "fonts/noto_sans_regular.ttf"));
+            } catch (Exception e) {
+                bFont = null;
+            }
+        }
+        if (logoTexture == null) {
+            try {
+                logoTexture = new BTexture(Identifier.of("remix", "textures/gui/logo.png"));
+            } catch (Exception e) {
+                logoTexture = null;
+            }
+        }
+        if (bFont == null) return;
+
+        boolean chatOpen = mc.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+        double mouseX = mc.mouse.getX() * mc.getWindow().getScaledWidth() / mc.getWindow().getWidth();
+        double mouseY = mc.mouse.getY() * mc.getWindow().getScaledHeight() / mc.getWindow().getHeight();
+        boolean leftDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(
+                mc.getWindow().getHandle(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT)
+                == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+
+        BRender b = new BRender();
+
+        for (HudPart part : parts) {
+            part.drag(chatOpen, leftDown, mouseX, mouseY);
+            part.render(ctx, b);
+        }
+
+        b.flush(ctx);
+    }
+
+    // ═══════════════════════════════════════════
+    // Rainbow helpers
+    // ═══════════════════════════════════════════
+
+    private static int rainbowShift(float speed, float saturation, float brightness, float offset) {
+        float hue = ((System.currentTimeMillis() % (long) (speed * 1000)) / (speed * 1000f) + offset) % 1.0f;
+        return Color.HSBtoRGB(hue, saturation, brightness);
+    }
+
+    private int[] getBgColors() {
+        if (rainbowBg.getValue()) {
+            float speed = rainbowSpeed.getValue();
+            int c1 = applyAlpha(rainbowShift(speed, 0.55f, 0.35f, 0f), 220);
+            int c2 = applyAlpha(rainbowShift(speed, 0.55f, 0.25f, 0.5f), 220);
+            return new int[]{c1, c2};
+        } else {
+            int c1 = applyAlpha(color1.getValue().getRGB(), 220);
+            int c2 = applyAlpha(color2.getValue().getRGB(), 220);
+            return new int[]{c1, c2};
+        }
+    }
+
+    private int getAccentColor() {
+        if (rainbowBg.getValue()) {
+            return rainbowShift(rainbowSpeed.getValue(), 0.55f, 1.0f, 0f);
+        }
+        return accent.getValue().getRGB();
+    }
+
+    // ═══════════════════════════════════════════
+    // HudPart
+    // ═══════════════════════════════════════════
+
+    private abstract class HudPart {
+        protected float x, y, width, height;
+        protected boolean dragging;
+        protected float dragOffsetX, dragOffsetY;
+
+        abstract void render(DrawContext ctx, BRender b);
+        abstract boolean isEnabled();
+        abstract NumberValue posX();
+        abstract NumberValue posY();
+
+        void updatePos() {
+            this.x = posX().getValue();
+            this.y = posY().getValue();
+        }
+
+        void drag(boolean chatOpen, boolean leftDown, double mouseX, double mouseY) {
+            updatePos();
+
+            if (!chatOpen || !leftDown) {
+                dragging = false;
+                return;
+            }
+
+            boolean hovered = mouseX >= x && mouseX <= x + width
+                    && mouseY >= y && mouseY <= y + height;
+
+            if (!dragging && hovered) {
+                dragging = true;
+                dragOffsetX = (float) (mouseX - x);
+                dragOffsetY = (float) (mouseY - y);
+            }
+
+            if (dragging) {
+                float newX = (float) (mouseX - dragOffsetX);
+                float newY = (float) (mouseY - dragOffsetY);
+                posX().setValue(Math.max(0, Math.min(2000, newX)));
+                posY().setValue(Math.max(0, Math.min(2000, newY)));
+                this.x = posX().getValue();
+                this.y = posY().getValue();
+            }
+        }
+
+        void drawBg(BRender b, float radius) {
+            int[] colors = getBgColors();
+            Gradient bg = new Gradient(colors[0], colors[1]);
+            b.roundRect((int) x, (int) y, (int) width, (int) height,
+                    bg, GradientDirection.LEFT_RIGHT, (int) radius, 0);
+        }
+    }
+
+    // ─── Watermark ───
+    private class WatermarkPart extends HudPart {
+        @Override boolean isEnabled() { return wmEnabled.getValue(); }
+        @Override NumberValue posX() { return wmX; }
+        @Override NumberValue posY() { return wmY; }
+
+        @Override
+        void render(DrawContext ctx, BRender b) {
+            if (!isEnabled()) return;
+
+            StringBuilder sb = new StringBuilder("Nexus");
+            if (wmFps.getValue()) sb.append(" | ").append(mc.getCurrentFps()).append(" FPS");
+            if (wmPing.getValue()) {
+                int ping = 0;
+                if (mc.getNetworkHandler() != null) {
+                    PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(mc.player.getUuid());
+                    if (entry != null) ping = entry.getLatency();
+                }
+                sb.append(" | ").append(ping).append(" ms");
+            }
+            if (wmTps.getValue()) sb.append(" | 20 TPS");
+            if (wmTime.getValue()) sb.append(" | ").append(LocalTime.now().format(TIME_FORMAT));
+
+            String text = sb.toString();
+            float size = 10f;
+            float textWidth = bFont.textSize(text, size);
+            float iconSize = 18;
+            float pad = 4;
+            this.width = textWidth + iconSize + pad * 4 + 4;
+            this.height = 24;
+
+            drawBg(b, 8);
+
+            if (logoTexture != null) {
+                b.drawTexture(logoTexture, x + pad, y + pad, iconSize, iconSize, 0xFFFFFFFF, true, 2);
+            } else {
+                int accentColor = getAccentColor();
+                Gradient iconGrad = new Gradient(accentColor, darken(accentColor, 0.7f));
+                b.roundRect((int) (x + pad), (int) (y + pad), (int) iconSize, (int) iconSize,
+                        iconGrad, GradientDirection.TOP_BOTTOM, 5, 1);
+                b.drawText(bFont, "N", x + pad + 5, y + pad + 3.5f, 11f, 0xFFFFFFFF, 2);
+            }
+
+            b.drawText(bFont, text, x + pad + iconSize + pad + 2,
+                    y + (height - 10) / 2f, size, 0xFFFFFFFF, 2);
+        }
+    }
+
+    // ─── Coordinates ───
+    private class CoordinatesPart extends HudPart {
+        @Override boolean isEnabled() { return coordsEnabled.getValue(); }
+        @Override NumberValue posX() { return coordsX; }
+        @Override NumberValue posY() { return coordsY; }
+
+        @Override
+        void render(DrawContext ctx, BRender b) {
+            if (!isEnabled()) return;
+
+            String text = String.format("X: %d  Y: %d  Z: %d",
+                    (int) mc.player.getX(), (int) mc.player.getY(), (int) mc.player.getZ());
+            float size = 10f;
+            float textWidth = bFont.textSize(text, size);
+            this.width = textWidth + 12;
+            this.height = 18;
+
+            drawBg(b, 6);
+            b.drawText(bFont, text, x + 6, y + (height - 10) / 2f, size, 0xFFFFFFFF, 2);
+        }
+    }
+
+    // ─── Armor ───
+    private class ArmorPart extends HudPart {
+        @Override boolean isEnabled() { return armorEnabled.getValue(); }
+        @Override NumberValue posX() { return armorX; }
+        @Override NumberValue posY() { return armorY; }
+
+        @Override
+        void render(DrawContext ctx, BRender b) {
+            if (!isEnabled()) return;
+
+            this.width = 4 * 20;
+            this.height = 20;
+
+            for (int i = 0; i < 4; i++) {
+                var stack = mc.player.getInventory().getStack(36 + i);
+                if (!stack.isEmpty()) {
+                    ctx.drawItem(stack, (int) (x + i * 20), (int) y);
+                    ctx.drawStackOverlay(mc.textRenderer, stack, (int) (x + i * 20), (int) y);
+                }
+            }
+        }
+    }
+
+    // ─── TargetHUD ───
+    private class TargetPart extends HudPart {
+        private final EasingAnimation showAnim = new EasingAnimation(Easing.EASE_OUT_CUBIC, 200);
+        private LivingEntity lastTarget;
+
+        @Override boolean isEnabled() { return targetEnabled.getValue(); }
+        @Override NumberValue posX() { return targetX; }
+        @Override NumberValue posY() { return targetY; }
+
+        @Override
+        void render(DrawContext ctx, BRender b) {
+            if (!isEnabled()) return;
+
+            var target = mc.targetedEntity;
+            LivingEntity living = (target instanceof LivingEntity le) ? le : null;
+
+            if (living != null) lastTarget = living;
+
+            showAnim.run(living != null ? 1 : 0);
+            float show = showAnim.getValue().floatValue();
+
+            if (show < 0.01f || lastTarget == null) return;
+
+            int alpha = (int) (220 * show);
+
+            this.width = 130;
+            this.height = 50;
+
+            int[] colors = getBgColors();
+            Gradient bg = new Gradient(
+                    applyAlpha(colors[0], alpha),
+                    applyAlpha(colors[1], alpha)
+            );
+            b.roundRect((int) x, (int) y, (int) width, (int) height,
+                    bg, GradientDirection.LEFT_RIGHT, 8, 0);
+
+            if (lastTarget instanceof AbstractClientPlayerEntity player) {
+                var skin = player.getSkin().body().texturePath();
+                ctx.drawTexture(RenderPipelines.GUI_TEXTURED, skin,
+                        (int) (x + 6), (int) (y + 6),
+                        8f, 8f, 32, 32, 64, 64);
+                ctx.drawTexture(RenderPipelines.GUI_TEXTURED, skin,
+                        (int) (x + 6), (int) (y + 6),
+                        40f, 8f, 32, 32, 64, 64);
+            }
+
+            b.drawText(bFont, lastTarget.getName().getString(),
+                    x + 44, y + 6, 10f,
+                    applyAlpha(0xFFFFFFFF, (int) (255 * show)), 2);
+
+            float hpPercent = lastTarget.getHealth() / lastTarget.getMaxHealth();
+            b.roundRect((int) (x + 44), (int) (y + 22), 80, 6,
+                    applyAlpha(0xFF303030, alpha), 3, 1);
+            b.roundRect((int) (x + 44), (int) (y + 22), (int) (80 * hpPercent), 6,
+                    applyAlpha(getAccentColor(), alpha), 3, 2);
+
+            String hpText = String.format("%.1f", lastTarget.getHealth());
+            b.drawText(bFont, hpText,
+                    x + 44, y + 32, 8f,
+                    applyAlpha(0xFFFFFFFF, (int) (255 * show)), 2);
+
+            int armorX = (int) (x + 44);
+            int armorY = (int) (y + 42);
+            EquipmentSlot[] slots = {
+                    EquipmentSlot.HEAD,
+                    EquipmentSlot.CHEST,
+                    EquipmentSlot.LEGS,
+                    EquipmentSlot.FEET
+            };
+            for (int i = 0; i < 4; i++) {
+                var stack = lastTarget.getEquippedStack(slots[i]);
+                if (!stack.isEmpty()) {
+                    ctx.drawItem(stack, armorX + i * 18, armorY);
+                    ctx.drawStackOverlay(mc.textRenderer, stack, armorX + i * 18, armorY);
+                }
+            }
+        }
+    }
+
+    // ─── Binds ───
+    private class BindsPart extends HudPart {
+        @Override boolean isEnabled() { return bindsEnabled.getValue(); }
+        @Override NumberValue posX() { return bindsX; }
+        @Override NumberValue posY() { return bindsY; }
+
+        @Override
+        void render(DrawContext ctx, BRender b) {
+            if (!isEnabled()) return;
+
+            List<Module> bound = new ArrayList<>();
+            for (Module m : instance.getModuleManager().getModuleMap().values()) {
+                if (m.isEnabled() && m.getKey() != -1) bound.add(m);
+            }
+            if (bound.isEmpty()) return;
+
+            this.width = 120;
+            this.height = 20 + bound.size() * 14;
+
+            drawBg(b, 8);
+            b.drawText(bFont, "Binds", x + 8, y + 6, 10f, 0xFFFFFFFF, 2);
+
+            float offset = 22;
+            for (Module m : bound) {
+                b.drawText(bFont, m.getName(), x + 8, y + offset, 8f, 0xFFFFFFFF, 2);
+                String key = cn.remix.util.misc.KeyUtil.getKeyName(m.getKey());
+                b.drawText(bFont, key, x + width - 8 - bFont.textSize(key, 8f), y + offset, 8f,
+                        getAccentColor(), 2);
+                offset += 14;
+            }
+        }
+    }
+
+    // ─── StaffList ───
+    private class StaffPart extends HudPart {
+        @Override boolean isEnabled() { return staffEnabled.getValue(); }
+        @Override NumberValue posX() { return staffX; }
+        @Override NumberValue posY() { return staffY; }
+
+        @Override
+        void render(DrawContext ctx, BRender b) {
+            if (!isEnabled()) return;
+            if (mc.getNetworkHandler() == null) return;
+
+            List<String> staff = new ArrayList<>();
+            for (PlayerListEntry entry : mc.getNetworkHandler().getPlayerList()) {
+                if (entry.getDisplayName() == null) continue;
+                String name = entry.getDisplayName().getString();
+                String upper = name.toUpperCase();
+                if (upper.contains("ADMIN") || upper.contains("MOD") || upper.contains("DEV")
+                        || upper.contains("OWNER") || upper.contains("HELPER")
+                        || upper.contains("STAFF")) {
+                    staff.add(name);
+                }
+            }
+
+            if (staff.isEmpty()) return;
+
+            this.width = 140;
+            this.height = 24 + staff.size() * 14;
+
+            drawBg(b, 8);
+            b.drawText(bFont, "Staff List", x + 8, y + 6, 10f, 0xFFFFFFFF, 2);
+
+            float offset = 22;
+            for (String name : staff) {
+                b.drawText(bFont, name, x + 10, y + offset, 8f, getAccentColor(), 2);
+                offset += 14;
+            }
+        }
+    }
+
+    // ─── Notifications ───
+    private class NotifPart extends HudPart {
+        @Override boolean isEnabled() { return notifEnabled.getValue(); }
+        @Override NumberValue posX() { return notifX; }
+        @Override NumberValue posY() { return notifY; }
+
+        @Override
+        void render(DrawContext ctx, BRender b) {
+            if (!isEnabled()) return;
+
+            // var notifications = Notification.getActiveNotifications();
+java.util.List<String> notifications = java.util.Collections.emptyList();
+            if (notifications == null || notifications.isEmpty()) return;
+
+            this.width = 160;
+            this.height = 24 + notifications.size() * 26;
+
+            drawBg(b, 8);
+            b.drawText(bFont, "Notifications", x + 8, y + 6, 10f, 0xFFFFFFFF, 2);
+
+            float offset = 24;
+            for (String text : notifications) {
+                b.drawText(bFont, text, x + 10, y + offset, 8f, 0xFFFFFFFF, 2);
+                offset += 26;
+            }
+        }
+    }
+
+    private static int applyAlpha(int color, int alpha) {
+        return (alpha << 24) | (color & 0x00FFFFFF);
+    }
+
+    private static int darken(int color, float factor) {
+        int a = (color >> 24) & 0xFF;
+        int r = (int) (((color >> 16) & 0xFF) * factor);
+        int g = (int) (((color >> 8) & 0xFF) * factor);
+        int b = (int) ((color & 0xFF) * factor);
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 }

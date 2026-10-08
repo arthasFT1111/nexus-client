@@ -19,6 +19,7 @@ public abstract class Module implements IMinecraft {
     private final List<Value> values = new ArrayList<>();
     private final String name;
     private final Category category;
+    private String description = "";
     private String suffix = "";
     private boolean enabled;
     private boolean hidden;
@@ -27,6 +28,12 @@ public abstract class Module implements IMinecraft {
     public Module(String name, Category category) {
         this.name = name;
         this.category = category;
+    }
+
+    public Module(String name, Category category, String description) {
+        this.name = name;
+        this.category = category;
+        this.description = description;
     }
 
     public void toggle() {

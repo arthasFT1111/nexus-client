@@ -1,7 +1,6 @@
 package cn.remix.module.impl.render;
 
 import cn.remix.module.impl.combat.Aura;
-import cn.remix.module.impl.combat.TpAura;
 import cn.remix.module.impl.render.targethud.Exhibition;
 import cn.remix.module.impl.render.targethud.Novoline;
 import cn.remix.module.impl.render.targethud.Remix;
@@ -81,12 +80,11 @@ public class TargetHUD extends Drag {
     public LivingEntity getTarget() {
         if (mc.currentScreen instanceof ChatScreen) return mc.player;
 
-        TpAura tpAura = getModule(TpAura.class);
-        if (tpAura.isEnabled() && tpAura.getTarget() != null) {
-            return tpAura.getTarget();
+        Aura aura = getModule(Aura.class);
+        if (aura.isEnabled() && aura.getTarget() != null) {
+            return aura.getTarget();
         }
 
-        Aura aura = getModule(Aura.class);
-        return aura.isEnabled() ? aura.getTarget() : null;
+        return null;
     }
 }

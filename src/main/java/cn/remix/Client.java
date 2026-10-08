@@ -1,5 +1,6 @@
 package cn.remix;
 
+import cn.remix.account.AccountManager;
 import cn.remix.command.CommandManager;
 import cn.remix.config.ConfigManager;
 import cn.remix.event.base.EventManager;
@@ -10,6 +11,7 @@ import cn.remix.module.ModuleManager;
 import cn.remix.ui.clickgui.CelestialClickGuiScreen;
 import cn.remix.ui.font.FontManager;
 import cn.remix.util.IMinecraft;
+import cn.remix.util.render.ShaderEngine;
 import lombok.Getter;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -22,8 +24,8 @@ import org.apache.logging.log4j.Logger;
 public class Client implements ClientModInitializer, IMinecraft {
 
     public static Client instance;
-    public static final String name = "Remix";
-    public static final String version = "2.4.3";
+    public static final String name = "Nexus";
+    public static final String version = "1.0.0";
     public static Logger logger = LogManager.getLogger(name);
 
     private EventManager eventManager;
@@ -34,6 +36,7 @@ public class Client implements ClientModInitializer, IMinecraft {
     private FriendManager friendManager;
     private TargetManager targetManager;
     private PacketManager packetManager;
+    private AccountManager accountManager;
 
     private CelestialClickGuiScreen clickGuiScreen;
 
@@ -44,6 +47,9 @@ public class Client implements ClientModInitializer, IMinecraft {
     }
 
     public void init() {
+        // Инициализация шейдеров (регистрация RenderPipeline)
+        // ShaderEngine.init();
+
         eventManager = new EventManager();
         fontManager = new FontManager();
         moduleManager = new ModuleManager();
@@ -52,28 +58,32 @@ public class Client implements ClientModInitializer, IMinecraft {
         friendManager = new FriendManager();
         targetManager = new TargetManager();
         packetManager = new PacketManager();
+        accountManager = new AccountManager();
 
         clickGuiScreen = new CelestialClickGuiScreen();
 
-        // ─── Регистрация HUD-элемента для Watermark ───
+        // Регистрация HUD-элемента для HUD-модуля
         HudElementRegistry.attachElementBefore(
                 VanillaHudElements.CHAT,
-                Identifier.of("remix", "watermark"),
+                Identifier.of("remix", "hud"),
                 (graphics, tickCounter) -> {
-                    cn.remix.module.impl.render.Watermark wm =
-                            instance.getModuleManager().getModule(cn.remix.module.impl.render.Watermark.class);
-                    if (wm != null && wm.isEnabled()) {
-                        wm.renderWatermark(graphics);
+                    cn.remix.module.impl.render.HUD hud =
+                            instance.getModuleManager().getModule(cn.remix.module.impl.render.HUD.class);
+                    if (hud != null && hud.isEnabled()) {
+                        hud.renderHud(graphics);
                     }
                 }
         );
 
-        logger.info("Remix initialized.");
+        logger.info("Nexus initialized.");
     }
 
     public void shutdown() {
         if (configManager != null) {
             configManager.saveAll();
+        }
+        if (accountManager != null) {
+            accountManager.save();
         }
     }
 }
